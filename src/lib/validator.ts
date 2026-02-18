@@ -1,52 +1,41 @@
-export interface ValidationResult {
+// src/lib/validator.ts
+export function validateEmail(email: string): boolean {
+  if (!email) {
+    return false;
+  }
+
+  if (email.length > 254) {
+    return false;
+  }
+
+  const pattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return pattern.test(email);
+}
+
+export function validatePassword(password: string): {
   valid: boolean;
   errors: string[];
-}
-
-export function validateCreateTodo(body: unknown): ValidationResult {
+} {
   const errors: string[] = [];
 
-  if (!body || typeof body !== "object") {
-    return { valid: false, errors: ["요청 본문은 객체여야 합니다"] };
+  if (password.length < 8) {
+    errors.push("비밀번호는 8자 이상이어야 합니다");
   }
 
-  const data = body as Record<string, unknown>;
-
-  if (!data.title) {
-    errors.push("title은 필수입니다");
-  } else if (typeof data.title !== "string") {
-    errors.push("title은 문자열이어야 합니다");
-  } else if (data.title.trim().length === 0) {
-    errors.push("title은 비어있을 수 없습니다");
-  } else if (data.title.length > 200) {
-    errors.push("title은 200자를 초과할 수 없습니다");
+  if (!/[A-Z]/.test(password)) {
+    errors.push("대문자를 포함해야 합니다");
   }
 
-  return { valid: errors.length === 0, errors };
-}
-
-export function validateUpdateTodo(body: unknown): ValidationResult {
-  const errors: string[] = [];
-
-  if (!body || typeof body !== "object") {
-    return { valid: false, errors: ["요청 본문은 객체여야 합니다"] };
+  if (!/[a-z]/.test(password)) {
+    errors.push("소문자를 포함해야 합니다");
   }
 
-  const data = body as Record<string, unknown>;
-
-  if (data.title !== undefined) {
-    if (typeof data.title !== "string") {
-      errors.push("title은 문자열이어야 합니다");
-    } else if (data.title.trim().length === 0) {
-      errors.push("title은 비어있을 수 없습니다");
-    } else if (data.title.length > 200) {
-      errors.push("title은 200자를 초과할 수 없습니다");
-    }
+  if (!/[0-9]/.test(password)) {
+    errors.push("숫자를 포함해야 합니다");
   }
 
-  if (data.completed !== undefined && typeof data.completed !== "boolean") {
-    errors.push("completed는 불리언이어야 합니다");
-  }
-
-  return { valid: errors.length === 0, errors };
+  return {
+    valid: errors.length === 0,
+    errors
+  };
 }
