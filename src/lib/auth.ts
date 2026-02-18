@@ -76,8 +76,13 @@ export async function generateRefreshToken(user: AuthUser): Promise<string> {
   return generateToken(user, JWT_REFRESH_EXPIRES_IN);
 }
 
-// JWT 검증 (토큰 문자열)
+// JWT 검증 (토큰 문자열) - verifyToken과 같은 함수
 export async function verifyJWT(token: string): Promise<JwtPayload | null> {
+  return verifyToken(token);
+}
+
+// JWT 검증 (토큰 문자열)
+export async function verifyToken(token: string): Promise<JwtPayload | null> {
   try {
     const parts = token.split(".");
     if (parts.length !== 3) return null;
@@ -104,7 +109,7 @@ export async function verifyRequest(req: Request): Promise<AuthUser | null> {
   if (!authHeader?.startsWith("Bearer ")) return null;
 
   const token = authHeader.substring(7);
-  const payload = await verifyJWT(token);
+  const payload = await verifyToken(token);
   if (!payload) return null;
 
   return { id: payload.userId, email: payload.email, name: payload.name };
