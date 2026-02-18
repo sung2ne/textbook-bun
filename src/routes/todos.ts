@@ -5,6 +5,9 @@ import {
   updateTodo,
   deleteTodo,
   toggleTodo,
+  reorderTodos,
+  deleteMultipleTodos,
+  completeMultipleTodos,
 } from "../lib/todos";
 import { NotFoundError, BadRequestError, ValidationError } from "../lib/errors";
 
@@ -87,6 +90,60 @@ export const todoRoutes = {
       const todo = toggleTodo(id);
       if (!todo) throw new NotFoundError("할 일을 찾을 수 없습니다");
       return Response.json(todo);
+    },
+  },
+
+  "/api/todos/reorder": {
+    PATCH: async (request: Request) => {
+      let body: { ids?: number[] };
+      try {
+        body = await request.json();
+      } catch {
+        throw new BadRequestError("잘못된 JSON 형식입니다");
+      }
+
+      if (!Array.isArray(body.ids) || body.ids.length === 0) {
+        throw new BadRequestError("ids는 비어있지 않은 배열이어야 합니다");
+      }
+
+      const result = reorderTodos(body.ids);
+      return Response.json(result);
+    },
+  },
+
+  "/api/todos/bulk-delete": {
+    DELETE: async (request: Request) => {
+      let body: { ids?: number[] };
+      try {
+        body = await request.json();
+      } catch {
+        throw new BadRequestError("잘못된 JSON 형식입니다");
+      }
+
+      if (!Array.isArray(body.ids) || body.ids.length === 0) {
+        throw new BadRequestError("ids는 비어있지 않은 배열이어야 합니다");
+      }
+
+      const result = deleteMultipleTodos(body.ids);
+      return Response.json(result);
+    },
+  },
+
+  "/api/todos/bulk-complete": {
+    PATCH: async (request: Request) => {
+      let body: { ids?: number[] };
+      try {
+        body = await request.json();
+      } catch {
+        throw new BadRequestError("잘못된 JSON 형식입니다");
+      }
+
+      if (!Array.isArray(body.ids) || body.ids.length === 0) {
+        throw new BadRequestError("ids는 비어있지 않은 배열이어야 합니다");
+      }
+
+      const result = completeMultipleTodos(body.ids);
+      return Response.json(result);
     },
   },
 };
