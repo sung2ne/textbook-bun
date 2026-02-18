@@ -7,8 +7,10 @@
   "scripts": {
     "dev": "bun --watch src/index.ts",
     "start": "bun src/index.ts",
-    "build": "bun build src/index.ts --outdir dist",
-    "test": "bun test"
+    "build": "bun run scripts/build.ts",
+    "test": "bun test",
+    "test:coverage": "bun run scripts/test.ts --coverage",
+    "setup": "bun run scripts/setup.ts"
   },
   "devDependencies": {
     "@types/bun": "latest",
