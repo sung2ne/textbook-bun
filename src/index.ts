@@ -2,6 +2,7 @@ import { join, resolve, normalize } from "path";
 import { todoRoutes } from "./routes/todos";
 import { categoryRoutes } from "./routes/categories";
 import { wrapRoutes } from "./lib/wrapHandler";
+import { createWebSocketHandler, type ClientData } from "./ws/handler";
 import { handleError } from "./lib/errorHandler";
 import {
   createSession,
@@ -61,12 +62,14 @@ function getTlsConfig() {
 const tlsConfig = getTlsConfig();
 const isHttps = !!tlsConfig;
 
+const wsHandler = createWebSocketHandler();
+
 const users = [
   { id: 1, username: "alice", password: "password123" },
   { id: 2, username: "bob", password: "secret456" },
 ];
 
-const server = Bun.serve({
+const server = Bun.serve<ClientData>({
   port: process.env.PORT || 3000,
   development: process.env.NODE_ENV !== "production",
   tls: tlsConfig,
@@ -154,9 +157,26 @@ const server = Bun.serve({
     ...wrapRoutes(categoryRoutes),
   },
 
-  fetch(request) {
+  fetch(request, server) {
+    const url = new URL(request.url);
+
+    // WebSocket 업그레이드 경로
+    if (url.pathname === "/ws") {
+      const upgraded = server.upgrade(request, {
+        data: {
+          id: crypto.randomUUID(),
+          connectedAt: new Date(),
+        },
+      });
+
+      if (upgraded) return;
+      return new Response("WebSocket 업그레이드 실패", { status: 500 });
+    }
+
     return Response.json({ error: "경로를 찾을 수 없습니다" }, { status: 404 });
   },
+
+  websocket: wsHandler,
 
   error(error) {
     console.error("서버 에러:", error);
