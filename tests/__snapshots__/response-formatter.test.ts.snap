@@ -1,0 +1,60 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`응답 포맷터 formatTodo 완료되지 않은 할 일을 포맷한다 1`] = `
+{
+  "createdAt": "2024-06-15",
+  "id": 1,
+  "status": "미완료",
+  "title": "Bun 배우기",
+}
+`;
+
+exports[`응답 포맷터 formatTodo 완료된 할 일을 포맷한다 1`] = `
+{
+  "createdAt": "2024-06-15",
+  "id": 2,
+  "status": "완료",
+  "title": "테스트 작성하기",
+}
+`;
+
+exports[`응답 포맷터 formatTodoList 여러 할 일을 포맷한다 1`] = `
+{
+  "items": [
+    {
+      "createdAt": "2024-06-15",
+      "id": 1,
+      "status": "미완료",
+      "title": "첫 번째",
+    },
+    {
+      "createdAt": "2024-06-15",
+      "id": 2,
+      "status": "완료",
+      "title": "두 번째",
+    },
+    {
+      "createdAt": "2024-06-15",
+      "id": 3,
+      "status": "미완료",
+      "title": "세 번째",
+    },
+  ],
+  "summary": {
+    "active": 2,
+    "completed": 1,
+    "total": 3,
+  },
+}
+`;
+
+exports[`응답 포맷터 formatTodoList 빈 목록을 처리한다 1`] = `
+{
+  "items": [],
+  "summary": {
+    "active": 0,
+    "completed": 0,
+    "total": 0,
+  },
+}
+`;
