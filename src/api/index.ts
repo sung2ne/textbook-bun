@@ -1,6 +1,7 @@
 // src/api/index.ts - API 라우터 통합
 import { initDatabase } from "../db";
 import { todoRoutes } from "./todos";
+import { authRoutes } from "./auth";
 
 export function createServer() {
   initDatabase();
@@ -11,7 +12,12 @@ export function createServer() {
     routes: {
       "GET /health": () => Response.json({ status: "ok", version: "1.0.0" }),
 
-      // 할 일 API (X-User-Id 임시 인증)
+      // 인증 라우트 (인증 불필요)
+      "POST /auth/register": authRoutes.register,
+      "POST /auth/login": authRoutes.login,
+      "POST /auth/refresh": authRoutes.refresh,
+
+      // 할 일 API (JWT 인증 필요)
       "GET /todos": todoRoutes.list,
       "POST /todos": todoRoutes.create,
       "GET /todos/:id": todoRoutes.get,
