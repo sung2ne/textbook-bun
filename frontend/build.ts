@@ -1,5 +1,6 @@
 // frontend/build.ts
 import { existsSync, mkdirSync, rmSync } from "fs";
+import { versionPlugin } from "./plugins/version";
 
 const DIST_DIR = "./dist";
 
@@ -21,6 +22,9 @@ const result = await Bun.build({
       process.env.NODE_ENV || "development"
     ),
   },
+
+  // 플러그인
+  plugins: [versionPlugin],
 });
 
 if (!result.success) {

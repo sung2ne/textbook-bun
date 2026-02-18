@@ -1,5 +1,6 @@
 // frontend/src/App.tsx
 import { useState, useEffect } from "react";
+import versionInfo from "virtual:version";
 
 interface Todo {
   id: number;
@@ -124,6 +125,8 @@ export function App() {
 
       <footer>
         <p>총 {todos.length}개 / 완료 {todos.filter((t) => t.completed).length}개</p>
+        <p>BunDo v{versionInfo.version}</p>
+        <p>빌드: {versionInfo.buildTime}</p>
       </footer>
     </div>
   );
