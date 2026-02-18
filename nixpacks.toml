@@ -1,0 +1,12 @@
+# nixpacks.toml - Railway 배포 설정
+[phases.setup]
+nixPkgs = ["bun"]
+
+[phases.install]
+cmds = ["bun install"]
+
+[phases.build]
+cmds = ["bun build ./src/index.ts --outdir ./dist --target bun"]
+
+[start]
+cmd = "bun run dist/index.js"
