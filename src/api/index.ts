@@ -1,5 +1,5 @@
 // src/api/index.ts - API 라우터 통합
-import { initDatabase } from "../db";
+import { initDatabase, getDatabase } from "../db";
 import { todoRoutes } from "./todos";
 import { authRoutes } from "./auth";
 import { docsRoutes } from "./docs";
@@ -12,6 +12,15 @@ export function createServer() {
 
     routes: {
       "GET /health": () => Response.json({ status: "ok", version: "1.0.0" }),
+      "GET /health/ready": () => {
+        try {
+          getDatabase().prepare("SELECT 1").all();
+          return new Response("Ready", { status: 200 });
+        } catch {
+          return new Response("Not Ready", { status: 503 });
+        }
+      },
+      "GET /health/live": () => new Response("Alive", { status: 200 }),
 
       // 인증 라우트 (인증 불필요)
       "POST /auth/register": authRoutes.register,
