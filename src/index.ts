@@ -1,6 +1,5 @@
 import { join, resolve, normalize } from "path";
-import { userRoutes } from "./routes/users";
-import { postRoutes } from "./routes/posts";
+import { todoRoutes } from "./routes/todos";
 
 const PUBLIC_DIR = resolve("./public");
 
@@ -39,8 +38,11 @@ const server = Bun.serve({
   development: process.env.NODE_ENV !== "production",
 
   routes: {
-    // 루트 - HTML 서빙
-    "/": () => serveStatic("index.html"),
+    // 루트 - API 정보
+    "/": () => Response.json({
+      name: "BunDo API",
+      version: "1.0.0",
+    }),
 
     // 정적 파일 서빙
     "/static/*": (request) => {
@@ -49,12 +51,14 @@ const server = Bun.serve({
       return serveStatic(filePath);
     },
 
-    // 헬스 체크 API
-    "/health": () => Response.json({ status: "ok", timestamp: new Date().toISOString() }),
+    // 헬스 체크
+    "/health": () => Response.json({
+      status: "ok",
+      timestamp: new Date().toISOString(),
+    }),
 
-    // 라우트 병합
-    ...userRoutes,
-    ...postRoutes,
+    // 할 일 API
+    ...todoRoutes,
   },
 
   fetch(request) {
@@ -62,4 +66,4 @@ const server = Bun.serve({
   },
 });
 
-console.log(`BunDo 서버가 http://localhost:${server.port}에서 실행 중입니다`);
+console.log(`BunDo API 서버가 http://localhost:${server.port}에서 실행 중입니다`);
