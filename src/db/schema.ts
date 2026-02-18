@@ -1,37 +1,82 @@
-import { pgTable, serial, text, boolean, integer, timestamp } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
+// src/db/schema.ts - SQLite 스키마 타입 정의
 
-// 카테고리 테이블
-export const categories = pgTable("categories", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull(),
-  color: text("color").default("#3B82F6"),
-});
+// 데이터베이스 레코드 타입 (DB에서 가져온 그대로)
+export interface UserRecord {
+  id: number;
+  email: string;
+  password: string;
+  name: string;
+  created_at: string;
+  updated_at: string;
+}
 
-// 할 일 테이블 (카테고리 외래 키 추가)
-export const todos = pgTable("todos", {
-  id: serial("id").primaryKey(),
-  title: text("title").notNull(),
-  completed: boolean("completed").default(false),
-  sortOrder: integer("sort_order").default(0),
-  categoryId: integer("category_id").references(() => categories.id),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
+export interface TodoRecord {
+  id: number;
+  user_id: number;
+  title: string;
+  description: string | null;
+  completed: number; // SQLite는 boolean이 없어서 0/1 사용
+  created_at: string;
+  updated_at: string;
+}
 
-// 관계 정의
-export const todosRelations = relations(todos, ({ one }) => ({
-  category: one(categories, {
-    fields: [todos.categoryId],
-    references: [categories.id],
-  }),
-}));
+// API 응답용 타입 (클라이언트에게 보내는 형태)
+export interface User {
+  id: number;
+  email: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+}
 
-export const categoriesRelations = relations(categories, ({ many }) => ({
-  todos: many(todos),
-}));
+export interface Todo {
+  id: number;
+  userId: number;
+  title: string;
+  description: string | null;
+  completed: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
 
-// 타입 추론
-export type Todo = typeof todos.$inferSelect;
-export type NewTodo = typeof todos.$inferInsert;
-export type Category = typeof categories.$inferSelect;
+// 입력 타입
+export interface CreateUserInput {
+  email: string;
+  password: string;
+  name: string;
+}
+
+export interface CreateTodoInput {
+  userId: number;
+  title: string;
+  description?: string | null;
+}
+
+export interface UpdateTodoInput {
+  title?: string;
+  description?: string | null;
+  completed?: boolean;
+}
+
+// 변환 함수
+export function toUser(record: UserRecord): User {
+  return {
+    id: record.id,
+    email: record.email,
+    name: record.name,
+    createdAt: record.created_at,
+    updatedAt: record.updated_at,
+  };
+}
+
+export function toTodo(record: TodoRecord): Todo {
+  return {
+    id: record.id,
+    userId: record.user_id,
+    title: record.title,
+    description: record.description,
+    completed: record.completed === 1,
+    createdAt: record.created_at,
+    updatedAt: record.updated_at,
+  };
+}
