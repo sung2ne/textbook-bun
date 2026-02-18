@@ -15,6 +15,7 @@ const result = await Bun.build({
   entrypoints: ["./public/index.html"],
   outdir: DIST_DIR,
   target: "browser",
+  splitting: true,
   minify: process.env.NODE_ENV === "production",
   sourcemap: process.env.NODE_ENV !== "production" ? "external" : "none",
   define: {
