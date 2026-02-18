@@ -42,6 +42,24 @@ async function serveStatic(
   return new Response(file, { headers });
 }
 
+// TLS 설정 함수
+function getTlsConfig() {
+  const keyPath = process.env.TLS_KEY;
+  const certPath = process.env.TLS_CERT;
+
+  if (!keyPath || !certPath) {
+    return undefined;
+  }
+
+  return {
+    key: Bun.file(keyPath),
+    cert: Bun.file(certPath),
+  };
+}
+
+const tlsConfig = getTlsConfig();
+const isHttps = !!tlsConfig;
+
 const users = [
   { id: 1, username: "alice", password: "password123" },
   { id: 2, username: "bob", password: "secret456" },
@@ -50,11 +68,13 @@ const users = [
 const server = Bun.serve({
   port: process.env.PORT || 3000,
   development: process.env.NODE_ENV !== "production",
+  tls: tlsConfig,
 
   routes: {
     "/": () => Response.json({
       name: "BunDo API",
       version: "1.0.0",
+      secure: isHttps,
     }),
 
     "/static/*": (request) => {
@@ -65,6 +85,7 @@ const server = Bun.serve({
 
     "/health": () => Response.json({
       status: "ok",
+      protocol: isHttps ? "https" : "http",
       timestamp: new Date().toISOString(),
     }),
 
@@ -128,7 +149,6 @@ const server = Bun.serve({
       return Response.json({ userId: session.userId, username: session.username });
     },
 
-    // 에러 핸들링이 적용된 할 일 API
     ...wrapRoutes(todoRoutes),
   },
 
@@ -146,4 +166,9 @@ setInterval(() => {
   cleanExpiredSessions();
 }, 60 * 60 * 1000);
 
-console.log(`BunDo API 서버가 http://localhost:${server.port}에서 실행 중입니다`);
+const protocol = isHttps ? "https" : "http";
+console.log(`BunDo API 서버가 ${protocol}://localhost:${server.port}에서 실행 중입니다`);
+
+if (!isHttps) {
+  console.log("경고: HTTPS가 비활성화되어 있습니다. 프로덕션에서는 TLS_KEY와 TLS_CERT를 설정하세요.");
+}
