@@ -19,8 +19,8 @@ function parseId(idStr: string): number {
 
 export const todoRoutes = {
   "/api/todos": {
-    GET: () => {
-      const todos = getAllTodos();
+    GET: async () => {
+      const todos = await getAllTodos();
       return Response.json(todos);
     },
 
@@ -43,15 +43,15 @@ export const todoRoutes = {
 
       if (errors.length > 0) throw new ValidationError(errors);
 
-      const todo = createTodo(body.title!.trim());
+      const todo = await createTodo(body.title!.trim());
       return Response.json(todo, { status: 201 });
     },
   },
 
   "/api/todos/:id": {
-    GET: (request: Request & { params: { id: string } }) => {
+    GET: async (request: Request & { params: { id: string } }) => {
       const id = parseId(request.params.id);
-      const todo = getTodoById(id);
+      const todo = await getTodoById(id);
       if (!todo) throw new NotFoundError("할 일을 찾을 수 없습니다");
       return Response.json(todo);
     },
@@ -65,10 +65,10 @@ export const todoRoutes = {
         throw new BadRequestError("잘못된 JSON 형식입니다");
       }
 
-      const existing = getTodoById(id);
+      const existing = await getTodoById(id);
       if (!existing) throw new NotFoundError("할 일을 찾을 수 없습니다");
 
-      const updated = updateTodo(
+      const updated = await updateTodo(
         id,
         body.title ?? existing.title,
         body.completed ?? Boolean(existing.completed)
@@ -76,18 +76,18 @@ export const todoRoutes = {
       return Response.json(updated);
     },
 
-    DELETE: (request: Request & { params: { id: string } }) => {
+    DELETE: async (request: Request & { params: { id: string } }) => {
       const id = parseId(request.params.id);
-      const deleted = deleteTodo(id);
+      const deleted = await deleteTodo(id);
       if (!deleted) throw new NotFoundError("할 일을 찾을 수 없습니다");
       return new Response(null, { status: 204 });
     },
   },
 
   "/api/todos/:id/toggle": {
-    PATCH: (request: Request & { params: { id: string } }) => {
+    PATCH: async (request: Request & { params: { id: string } }) => {
       const id = parseId(request.params.id);
-      const todo = toggleTodo(id);
+      const todo = await toggleTodo(id);
       if (!todo) throw new NotFoundError("할 일을 찾을 수 없습니다");
       return Response.json(todo);
     },
@@ -106,7 +106,7 @@ export const todoRoutes = {
         throw new BadRequestError("ids는 비어있지 않은 배열이어야 합니다");
       }
 
-      const result = reorderTodos(body.ids);
+      const result = await reorderTodos(body.ids);
       return Response.json(result);
     },
   },
@@ -124,7 +124,7 @@ export const todoRoutes = {
         throw new BadRequestError("ids는 비어있지 않은 배열이어야 합니다");
       }
 
-      const result = deleteMultipleTodos(body.ids);
+      const result = await deleteMultipleTodos(body.ids);
       return Response.json(result);
     },
   },
@@ -142,7 +142,7 @@ export const todoRoutes = {
         throw new BadRequestError("ids는 비어있지 않은 배열이어야 합니다");
       }
 
-      const result = completeMultipleTodos(body.ids);
+      const result = await completeMultipleTodos(body.ids);
       return Response.json(result);
     },
   },

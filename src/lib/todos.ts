@@ -1,104 +1,115 @@
-import db from "../db";
-
-// Prepared Statements 미리 생성 (성능 최적화)
-const statements = {
-  selectAll: db.prepare("SELECT * FROM todos ORDER BY sort_order ASC, created_at DESC"),
-  selectById: db.prepare("SELECT * FROM todos WHERE id = ?"),
-  insert: db.prepare("INSERT INTO todos (title) VALUES (?) RETURNING *"),
-  update: db.prepare(`
-    UPDATE todos
-    SET title = ?, completed = ?, updated_at = CURRENT_TIMESTAMP
-    WHERE id = ?
-    RETURNING *
-  `),
-  delete: db.prepare("DELETE FROM todos WHERE id = ?"),
-  toggleComplete: db.prepare(`
-    UPDATE todos
-    SET completed = NOT completed, updated_at = CURRENT_TIMESTAMP
-    WHERE id = ?
-    RETURNING *
-  `),
-  updateOrder: db.prepare("UPDATE todos SET sort_order = ? WHERE id = ?"),
-};
+import sql from "../db";
 
 export interface Todo {
   id: number;
   title: string;
-  completed: number;
+  completed: boolean;
   sort_order: number;
-  created_at: string;
-  updated_at: string;
+  created_at: Date;
+  updated_at: Date;
 }
 
-export function getAllTodos(): Todo[] {
-  return statements.selectAll.all() as Todo[];
+export async function getAllTodos(): Promise<Todo[]> {
+  return await sql<Todo[]>`
+    SELECT * FROM todos
+    ORDER BY sort_order ASC, created_at DESC
+  `;
 }
 
-export function getTodoById(id: number): Todo | undefined {
-  return statements.selectById.get(id) as Todo | undefined;
+export async function getTodoById(id: number): Promise<Todo | undefined> {
+  const [todo] = await sql<Todo[]>`
+    SELECT * FROM todos
+    WHERE id = ${id}
+  `;
+  return todo;
 }
 
-export function createTodo(title: string): Todo {
-  return statements.insert.get(title) as Todo;
+export async function createTodo(title: string): Promise<Todo> {
+  const [todo] = await sql<Todo[]>`
+    INSERT INTO todos (title)
+    VALUES (${title})
+    RETURNING *
+  `;
+  return todo;
 }
 
-export function updateTodo(
+export async function updateTodo(
   id: number,
   title: string,
   completed: boolean
-): Todo | undefined {
-  return statements.update.get(title, completed ? 1 : 0, id) as Todo | undefined;
+): Promise<Todo | undefined> {
+  const [todo] = await sql<Todo[]>`
+    UPDATE todos
+    SET title = ${title}, completed = ${completed}, updated_at = NOW()
+    WHERE id = ${id}
+    RETURNING *
+  `;
+  return todo;
 }
 
-export function deleteTodo(id: number): boolean {
-  const result = statements.delete.run(id);
-  return result.changes > 0;
+export async function deleteTodo(id: number): Promise<boolean> {
+  const result = await sql`
+    DELETE FROM todos
+    WHERE id = ${id}
+  `;
+  return result.count > 0;
 }
 
-export function toggleTodo(id: number): Todo | undefined {
-  return statements.toggleComplete.get(id) as Todo | undefined;
+export async function toggleTodo(id: number): Promise<Todo | undefined> {
+  const [todo] = await sql<Todo[]>`
+    UPDATE todos
+    SET completed = NOT completed, updated_at = NOW()
+    WHERE id = ${id}
+    RETURNING *
+  `;
+  return todo;
 }
 
 // 할 일 순서 변경 (드래그 앤 드롭)
-export const reorderTodos = db.transaction((orderedIds: number[]) => {
-  for (let i = 0; i < orderedIds.length; i++) {
-    const id = orderedIds[i];
-    const result = statements.updateOrder.run(i, id);
-
-    if (result.changes === 0) {
-      throw new Error(`ID ${id}에 해당하는 할 일이 없습니다.`);
+export async function reorderTodos(
+  orderedIds: number[]
+): Promise<{ success: boolean; count: number }> {
+  await sql.begin(async (tx) => {
+    for (let i = 0; i < orderedIds.length; i++) {
+      const result = await tx`
+        UPDATE todos SET sort_order = ${i} WHERE id = ${orderedIds[i]}
+      `;
+      if (Number(result.count) === 0) {
+        throw new Error(`ID ${orderedIds[i]}에 해당하는 할 일이 없습니다.`);
+      }
     }
-  }
-
+  });
   return { success: true, count: orderedIds.length };
-});
+}
 
 // 여러 할 일 일괄 삭제
-export const deleteMultipleTodos = db.transaction((ids: number[]) => {
-  const deleteStmt = db.prepare("DELETE FROM todos WHERE id = ?");
+export async function deleteMultipleTodos(
+  ids: number[]
+): Promise<{ deletedCount: number }> {
   let deletedCount = 0;
-
-  for (const id of ids) {
-    const result = deleteStmt.run(id);
-    deletedCount += result.changes;
-  }
-
+  await sql.begin(async (tx) => {
+    for (const id of ids) {
+      const result = await tx`DELETE FROM todos WHERE id = ${id}`;
+      deletedCount += Number(result.count);
+    }
+  });
   return { deletedCount };
-});
+}
 
 // 할 일 일괄 완료 처리
-export const completeMultipleTodos = db.transaction((ids: number[]) => {
-  const completeStmt = db.prepare(`
-    UPDATE todos
-    SET completed = 1, updated_at = CURRENT_TIMESTAMP
-    WHERE id = ?
-  `);
+export async function completeMultipleTodos(
+  ids: number[]
+): Promise<{ completedCount: number }> {
   let completedCount = 0;
-
-  for (const id of ids) {
-    const result = completeStmt.run(id);
-    completedCount += result.changes;
-  }
-
+  await sql.begin(async (tx) => {
+    for (const id of ids) {
+      const result = await tx`
+        UPDATE todos
+        SET completed = TRUE, updated_at = NOW()
+        WHERE id = ${id}
+      `;
+      completedCount += Number(result.count);
+    }
+  });
   return { completedCount };
-});
+}
