@@ -1,35 +1,31 @@
-import sql from "../db";
+import { db } from "../db";
+import { todos, categories, Todo, Category } from "../db/schema";
+import { eq, desc, asc, ilike, and, SQL } from "drizzle-orm";
 
-export interface Todo {
-  id: number;
-  title: string;
-  completed: boolean;
-  sort_order: number;
-  created_at: Date;
-  updated_at: Date;
-}
+export type { Todo, Category };
 
 export async function getAllTodos(): Promise<Todo[]> {
-  return await sql<Todo[]>`
-    SELECT * FROM todos
-    ORDER BY sort_order ASC, created_at DESC
-  `;
+  return await db
+    .select()
+    .from(todos)
+    .orderBy(asc(todos.sortOrder), desc(todos.createdAt));
 }
 
 export async function getTodoById(id: number): Promise<Todo | undefined> {
-  const [todo] = await sql<Todo[]>`
-    SELECT * FROM todos
-    WHERE id = ${id}
-  `;
+  const [todo] = await db
+    .select()
+    .from(todos)
+    .where(eq(todos.id, id));
+
   return todo;
 }
 
 export async function createTodo(title: string): Promise<Todo> {
-  const [todo] = await sql<Todo[]>`
-    INSERT INTO todos (title)
-    VALUES (${title})
-    RETURNING *
-  `;
+  const [todo] = await db
+    .insert(todos)
+    .values({ title })
+    .returning();
+
   return todo;
 }
 
@@ -38,45 +34,94 @@ export async function updateTodo(
   title: string,
   completed: boolean
 ): Promise<Todo | undefined> {
-  const [todo] = await sql<Todo[]>`
-    UPDATE todos
-    SET title = ${title}, completed = ${completed}, updated_at = NOW()
-    WHERE id = ${id}
-    RETURNING *
-  `;
+  const [todo] = await db
+    .update(todos)
+    .set({ title, completed, updatedAt: new Date() })
+    .where(eq(todos.id, id))
+    .returning();
+
   return todo;
 }
 
 export async function deleteTodo(id: number): Promise<boolean> {
-  const result = await sql`
-    DELETE FROM todos
-    WHERE id = ${id}
-  `;
-  return result.count > 0;
+  const result = await db
+    .delete(todos)
+    .where(eq(todos.id, id))
+    .returning({ id: todos.id });
+
+  return result.length > 0;
 }
 
 export async function toggleTodo(id: number): Promise<Todo | undefined> {
-  const [todo] = await sql<Todo[]>`
-    UPDATE todos
-    SET completed = NOT completed, updated_at = NOW()
-    WHERE id = ${id}
-    RETURNING *
-  `;
+  const existing = await getTodoById(id);
+  if (!existing) return undefined;
+
+  const [todo] = await db
+    .update(todos)
+    .set({ completed: !existing.completed, updatedAt: new Date() })
+    .where(eq(todos.id, id))
+    .returning();
+
   return todo;
 }
 
-// 할 일 순서 변경 (드래그 앤 드롭)
+interface SearchParams {
+  completed?: boolean;
+  search?: string;
+  limit?: number;
+}
+
+export async function searchTodos(params: SearchParams): Promise<Todo[]> {
+  const { completed, search, limit = 10 } = params;
+
+  const conditions: SQL[] = [];
+
+  if (completed !== undefined) {
+    conditions.push(eq(todos.completed, completed));
+  }
+
+  if (search) {
+    conditions.push(ilike(todos.title, `%${search}%`));
+  }
+
+  return await db
+    .select()
+    .from(todos)
+    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .limit(limit)
+    .orderBy(desc(todos.createdAt));
+}
+
+// 할 일과 카테고리 함께 조회
+export async function getTodosWithCategory() {
+  return await db.query.todos.findMany({
+    with: {
+      category: true,
+    },
+    orderBy: (todos, { asc, desc }) => [asc(todos.sortOrder), desc(todos.createdAt)],
+  });
+}
+
+// 특정 카테고리의 할 일만 조회
+export async function getTodosByCategory(categoryId: number) {
+  return await db.query.todos.findMany({
+    where: eq(todos.categoryId, categoryId),
+    with: {
+      category: true,
+    },
+  });
+}
+
+// 할 일 순서 변경
 export async function reorderTodos(
   orderedIds: number[]
 ): Promise<{ success: boolean; count: number }> {
-  await sql.begin(async (tx) => {
+  await db.transaction(async (tx) => {
     for (let i = 0; i < orderedIds.length; i++) {
-      const result = await tx`
-        UPDATE todos SET sort_order = ${i} WHERE id = ${orderedIds[i]}
-      `;
-      if (Number(result.count) === 0) {
-        throw new Error(`ID ${orderedIds[i]}에 해당하는 할 일이 없습니다.`);
-      }
+      await tx
+        .update(todos)
+        .set({ sortOrder: i })
+        .where(eq(todos.id, orderedIds[i]));
     }
   });
   return { success: true, count: orderedIds.length };
@@ -87,10 +132,13 @@ export async function deleteMultipleTodos(
   ids: number[]
 ): Promise<{ deletedCount: number }> {
   let deletedCount = 0;
-  await sql.begin(async (tx) => {
+  await db.transaction(async (tx) => {
     for (const id of ids) {
-      const result = await tx`DELETE FROM todos WHERE id = ${id}`;
-      deletedCount += Number(result.count);
+      const result = await tx
+        .delete(todos)
+        .where(eq(todos.id, id))
+        .returning({ id: todos.id });
+      deletedCount += result.length;
     }
   });
   return { deletedCount };
@@ -101,15 +149,59 @@ export async function completeMultipleTodos(
   ids: number[]
 ): Promise<{ completedCount: number }> {
   let completedCount = 0;
-  await sql.begin(async (tx) => {
+  await db.transaction(async (tx) => {
     for (const id of ids) {
-      const result = await tx`
-        UPDATE todos
-        SET completed = TRUE, updated_at = NOW()
-        WHERE id = ${id}
-      `;
-      completedCount += Number(result.count);
+      const result = await tx
+        .update(todos)
+        .set({ completed: true, updatedAt: new Date() })
+        .where(eq(todos.id, id))
+        .returning({ id: todos.id });
+      completedCount += result.length;
     }
   });
   return { completedCount };
+}
+
+// 카테고리 CRUD
+export async function getAllCategories(): Promise<Category[]> {
+  return await db.select().from(categories).orderBy(asc(categories.id));
+}
+
+export async function createCategory(
+  name: string,
+  color?: string
+): Promise<Category> {
+  const [category] = await db
+    .insert(categories)
+    .values({ name, color })
+    .returning();
+  return category;
+}
+
+export async function getCategoriesWithTodos() {
+  return await db.query.categories.findMany({
+    with: {
+      todos: true,
+    },
+  });
+}
+
+// 트랜잭션으로 할 일과 카테고리 함께 생성
+export async function createTodoWithCategory(
+  todoTitle: string,
+  categoryName: string
+) {
+  return await db.transaction(async (tx) => {
+    const [category] = await tx
+      .insert(categories)
+      .values({ name: categoryName })
+      .returning();
+
+    const [todo] = await tx
+      .insert(todos)
+      .values({ title: todoTitle, categoryId: category.id })
+      .returning();
+
+    return { todo, category };
+  });
 }

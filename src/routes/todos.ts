@@ -8,6 +8,8 @@ import {
   reorderTodos,
   deleteMultipleTodos,
   completeMultipleTodos,
+  getTodosWithCategory,
+  searchTodos,
 } from "../lib/todos";
 import { NotFoundError, BadRequestError, ValidationError } from "../lib/errors";
 
@@ -19,13 +21,34 @@ function parseId(idStr: string): number {
 
 export const todoRoutes = {
   "/api/todos": {
-    GET: async () => {
+    GET: async (request: Request) => {
+      const url = new URL(request.url);
+      const search = url.searchParams.get("search") ?? undefined;
+      const completedParam = url.searchParams.get("completed");
+      const withCategory = url.searchParams.get("with_category") === "true";
+
+      if (search || completedParam !== null) {
+        const completed =
+          completedParam === "true"
+            ? true
+            : completedParam === "false"
+            ? false
+            : undefined;
+        const todos = await searchTodos({ search, completed });
+        return Response.json(todos);
+      }
+
+      if (withCategory) {
+        const todos = await getTodosWithCategory();
+        return Response.json(todos);
+      }
+
       const todos = await getAllTodos();
       return Response.json(todos);
     },
 
     POST: async (request: Request) => {
-      let body: { title?: string };
+      let body: { title?: string; categoryId?: number };
       try {
         body = await request.json();
       } catch {

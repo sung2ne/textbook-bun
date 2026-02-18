@@ -1,6 +1,6 @@
 import { join, resolve, normalize } from "path";
-import "./db";  // DB 초기화 (테이블 생성)
 import { todoRoutes } from "./routes/todos";
+import { categoryRoutes } from "./routes/categories";
 import { wrapRoutes } from "./lib/wrapHandler";
 import { handleError } from "./lib/errorHandler";
 import {
@@ -151,6 +151,7 @@ const server = Bun.serve({
     },
 
     ...wrapRoutes(todoRoutes),
+    ...wrapRoutes(categoryRoutes),
   },
 
   fetch(request) {
