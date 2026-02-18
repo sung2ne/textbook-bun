@@ -1,20 +1,24 @@
-import { getSessionFromRequest, type SessionData } from "./session";
+// src/lib/auth.ts - 임시 인증 (PART 11 챕터 04까지 사용)
+// 챕터 05에서 JWT 인증으로 교체됩니다.
 
-type Handler = (request: Request) => Response | Promise<Response>;
-type AuthenticatedHandler = (
-  request: Request,
-  session: SessionData
-) => Response | Promise<Response>;
+export interface AuthUser {
+  id: number;
+  email: string;
+  name: string;
+}
 
-// 인증 필요 래퍼
-export function requireAuth(handler: AuthenticatedHandler): Handler {
-  return (request) => {
-    const session = getSessionFromRequest(request);
+// 임시 인증 함수 (X-User-Id 헤더 기반)
+export async function verifyRequest(req: Request): Promise<AuthUser | null> {
+  const userId = req.headers.get("X-User-Id");
 
-    if (!session) {
-      return Response.json({ error: "로그인이 필요합니다" }, { status: 401 });
-    }
+  if (!userId || isNaN(Number(userId))) {
+    return null;
+  }
 
-    return handler(request, session);
+  // 실제로는 DB에서 사용자 조회 (현재는 하드코딩)
+  return {
+    id: Number(userId),
+    email: "user@example.com",
+    name: "Test User",
   };
 }

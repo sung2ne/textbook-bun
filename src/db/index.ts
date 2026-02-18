@@ -1,11 +1,6 @@
-import { drizzle } from "drizzle-orm/postgres-js";
-import postgres from "postgres";
-import * as schema from "./schema";
+// src/db/index.ts - 데이터베이스 연결 (챕터 02: 임시 초기화)
+// 챕터 03에서 SQLite 기반으로 교체됩니다.
 
-const client = postgres(process.env.DATABASE_URL!);
-export const db = drizzle(client, { schema });
-
-process.on("beforeExit", async () => {
-  await client.end();
-  console.log("PostgreSQL 연결이 닫혔습니다.");
-});
+export function initDatabase(): void {
+  console.log("📦 Database initialized");
+}
