@@ -1,8 +1,13 @@
-import * as todoStore from "../lib/todoStore";
+import {
+  getAllTodos,
+  getTodoById,
+  createTodo,
+  updateTodo,
+  deleteTodo,
+  toggleTodo,
+} from "../lib/todos";
 import { NotFoundError, BadRequestError, ValidationError } from "../lib/errors";
-import type { CreateTodoRequest, UpdateTodoRequest } from "../types";
 
-// ID 파라미터 파싱 헬퍼
 function parseId(idStr: string): number {
   const id = parseInt(idStr, 10);
   if (isNaN(id)) throw new BadRequestError("유효하지 않은 ID입니다");
@@ -12,12 +17,12 @@ function parseId(idStr: string): number {
 export const todoRoutes = {
   "/api/todos": {
     GET: () => {
-      const todos = todoStore.findAll();
+      const todos = getAllTodos();
       return Response.json(todos);
     },
 
     POST: async (request: Request) => {
-      let body: CreateTodoRequest;
+      let body: { title?: string };
       try {
         body = await request.json();
       } catch {
@@ -35,7 +40,7 @@ export const todoRoutes = {
 
       if (errors.length > 0) throw new ValidationError(errors);
 
-      const todo = todoStore.create({ title: body.title.trim() });
+      const todo = createTodo(body.title!.trim());
       return Response.json(todo, { status: 201 });
     },
   },
@@ -43,42 +48,45 @@ export const todoRoutes = {
   "/api/todos/:id": {
     GET: (request: Request & { params: { id: string } }) => {
       const id = parseId(request.params.id);
-      const todo = todoStore.findById(id);
+      const todo = getTodoById(id);
       if (!todo) throw new NotFoundError("할 일을 찾을 수 없습니다");
       return Response.json(todo);
     },
 
     PUT: async (request: Request & { params: { id: string } }) => {
       const id = parseId(request.params.id);
-      let body: UpdateTodoRequest;
+      let body: { title?: string; completed?: boolean };
       try {
         body = await request.json();
       } catch {
         throw new BadRequestError("잘못된 JSON 형식입니다");
       }
-      const updated = todoStore.update(id, body);
-      if (!updated) throw new NotFoundError("할 일을 찾을 수 없습니다");
-      return Response.json(updated);
-    },
 
-    PATCH: async (request: Request & { params: { id: string } }) => {
-      const id = parseId(request.params.id);
-      let body: UpdateTodoRequest;
-      try {
-        body = await request.json();
-      } catch {
-        throw new BadRequestError("잘못된 JSON 형식입니다");
-      }
-      const updated = todoStore.update(id, body);
-      if (!updated) throw new NotFoundError("할 일을 찾을 수 없습니다");
+      const existing = getTodoById(id);
+      if (!existing) throw new NotFoundError("할 일을 찾을 수 없습니다");
+
+      const updated = updateTodo(
+        id,
+        body.title ?? existing.title,
+        body.completed ?? Boolean(existing.completed)
+      );
       return Response.json(updated);
     },
 
     DELETE: (request: Request & { params: { id: string } }) => {
       const id = parseId(request.params.id);
-      const deleted = todoStore.remove(id);
+      const deleted = deleteTodo(id);
       if (!deleted) throw new NotFoundError("할 일을 찾을 수 없습니다");
       return new Response(null, { status: 204 });
+    },
+  },
+
+  "/api/todos/:id/toggle": {
+    PATCH: (request: Request & { params: { id: string } }) => {
+      const id = parseId(request.params.id);
+      const todo = toggleTodo(id);
+      if (!todo) throw new NotFoundError("할 일을 찾을 수 없습니다");
+      return Response.json(todo);
     },
   },
 };

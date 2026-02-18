@@ -36,3 +36,10 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 # TLS certificates
 certs/
 *.pem
+
+# SQLite database files
+data/
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
