@@ -1,32 +1,37 @@
+// src/lib/logger.ts - 프로덕션용 구조화된 JSON 로거
 type LogLevel = "debug" | "info" | "warn" | "error";
 
 interface LogEntry {
+  timestamp: string;
   level: LogLevel;
   message: string;
-  timestamp: string;
-  data?: unknown;
+  [key: string]: unknown;
 }
 
-class Logger {
-  private log(level: LogLevel, message: string, data?: unknown) {
-    const entry: LogEntry = {
-      level,
-      message,
-      timestamp: new Date().toISOString(),
-      ...(data && { data }),
-    };
+function log(level: LogLevel, message: string, data?: Record<string, unknown>) {
+  const entry: LogEntry = {
+    timestamp: new Date().toISOString(),
+    level,
+    message,
+    ...data,
+  };
 
-    if (process.env.NODE_ENV !== "production") {
-      console[level](JSON.stringify(entry, null, 2));
-    } else {
-      console.log(JSON.stringify(entry));
-    }
+  const output = JSON.stringify(entry);
+
+  if (level === "error") {
+    console.error(output);
+  } else {
+    console.log(output);
   }
-
-  debug(message: string, data?: unknown) { this.log("debug", message, data); }
-  info(message: string, data?: unknown) { this.log("info", message, data); }
-  warn(message: string, data?: unknown) { this.log("warn", message, data); }
-  error(message: string, data?: unknown) { this.log("error", message, data); }
 }
 
-export const logger = new Logger();
+export const logger = {
+  debug: (message: string, data?: Record<string, unknown>) =>
+    log("debug", message, data),
+  info: (message: string, data?: Record<string, unknown>) =>
+    log("info", message, data),
+  warn: (message: string, data?: Record<string, unknown>) =>
+    log("warn", message, data),
+  error: (message: string, data?: Record<string, unknown>) =>
+    log("error", message, data),
+};
