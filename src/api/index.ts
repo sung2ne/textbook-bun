@@ -1,6 +1,6 @@
 // src/api/index.ts - API 라우터 통합
-// 챕터 02: 기본 구조 (데이터베이스 연동은 챕터 03에서)
 import { initDatabase } from "../db";
+import { todoRoutes } from "./todos";
 
 export function createServer() {
   initDatabase();
@@ -10,9 +10,16 @@ export function createServer() {
 
     routes: {
       "GET /health": () => Response.json({ status: "ok", version: "1.0.0" }),
+
+      // 할 일 API (X-User-Id 임시 인증)
+      "GET /todos": todoRoutes.list,
+      "POST /todos": todoRoutes.create,
+      "GET /todos/:id": todoRoutes.get,
+      "PATCH /todos/:id": todoRoutes.update,
+      "DELETE /todos/:id": todoRoutes.delete,
+      "PATCH /todos/:id/toggle": todoRoutes.toggle,
     },
 
-    // 매칭되지 않는 라우트
     fetch(req) {
       return Response.json(
         { success: false, error: { code: "NOT_FOUND", message: "Route not found" } },
