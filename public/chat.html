@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Bun 채팅</title>
+  <style>
+    body { font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; }
+    #messages { height: 400px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; margin-bottom: 10px; }
+    .message { margin: 5px 0; }
+    .system { color: gray; font-style: italic; }
+    .dm { color: purple; }
+    .input-area { display: flex; gap: 10px; }
+    #messageInput { flex: 1; padding: 10px; }
+    button { padding: 10px 20px; }
+  </style>
+</head>
+<body>
+  <h1>Bun 채팅</h1>
+  <p id="roomInfo">방: general</p>
+  <div id="messages"></div>
+  <div class="input-area">
+    <input type="text" id="messageInput" placeholder="메시지 입력..." onkeypress="handleKeyPress(event)">
+    <button onclick="sendMessage()">전송</button>
+  </div>
+
+  <script>
+    const username = prompt("닉네임을 입력하세요:") || "익명";
+    const room = new URLSearchParams(location.search).get("room") || "general";
+    const ws = new WebSocket(`ws://localhost:3000/ws?username=${encodeURIComponent(username)}&room=${encodeURIComponent(room)}`);
+    const messages = document.getElementById("messages");
+    let myId = null;
+
+    document.getElementById("roomInfo").textContent = `방: ${room} | 닉네임: ${username}`;
+
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      let html = "";
+
+      switch (data.type) {
+        case "init":
+          myId = data.yourId;
+          html = `<div class="message system">입장했습니다. 현재 ${data.users.length}명 접속 중</div>`;
+          break;
+        case "join":
+          html = `<div class="message system">${data.user.username}님이 입장했습니다. (${data.userCount}명)</div>`;
+          break;
+        case "leave":
+          html = `<div class="message system">${data.user.username}님이 퇴장했습니다. (${data.userCount}명)</div>`;
+          break;
+        case "message":
+          const isMine = data.user.id === myId;
+          html = `<div class="message"><strong>${data.user.username}${isMine ? " (나)" : ""}:</strong> ${data.content}</div>`;
+          break;
+        case "dm":
+          html = `<div class="message dm">💌 ${data.from.username}: ${data.content}</div>`;
+          break;
+        case "room_changed":
+          html = `<div class="message system">방을 ${data.room}으로 이동했습니다.</div>`;
+          document.getElementById("roomInfo").textContent = `방: ${data.room} | 닉네임: ${username}`;
+          break;
+      }
+
+      if (html) {
+        messages.innerHTML += html;
+        messages.scrollTop = messages.scrollHeight;
+      }
+    };
+
+    function sendMessage() {
+      const input = document.getElementById("messageInput");
+      if (input.value.trim()) {
+        ws.send(JSON.stringify({ type: "message", content: input.value }));
+        input.value = "";
+      }
+    }
+
+    function handleKeyPress(event) {
+      if (event.key === "Enter") sendMessage();
+    }
+  </script>
+</body>
+</html>
