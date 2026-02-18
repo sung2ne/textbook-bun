@@ -12,6 +12,7 @@ import {
   searchTodos,
 } from "../lib/todos";
 import { NotFoundError, BadRequestError, ValidationError } from "../lib/errors";
+import { pubsub } from "../ws/pubsub";
 
 function parseId(idStr: string): number {
   const id = parseInt(idStr, 10);
@@ -67,6 +68,7 @@ export const todoRoutes = {
       if (errors.length > 0) throw new ValidationError(errors);
 
       const todo = await createTodo(body.title!.trim());
+      pubsub.notifyTodoCreated(todo);
       return Response.json(todo, { status: 201 });
     },
   },
@@ -96,6 +98,7 @@ export const todoRoutes = {
         body.title ?? existing.title,
         body.completed ?? Boolean(existing.completed)
       );
+      if (updated) pubsub.notifyTodoUpdated(updated);
       return Response.json(updated);
     },
 
@@ -103,6 +106,7 @@ export const todoRoutes = {
       const id = parseId(request.params.id);
       const deleted = await deleteTodo(id);
       if (!deleted) throw new NotFoundError("할 일을 찾을 수 없습니다");
+      pubsub.notifyTodoDeleted(id);
       return new Response(null, { status: 204 });
     },
   },
@@ -112,6 +116,7 @@ export const todoRoutes = {
       const id = parseId(request.params.id);
       const todo = await toggleTodo(id);
       if (!todo) throw new NotFoundError("할 일을 찾을 수 없습니다");
+      pubsub.notifyTodoUpdated(todo);
       return Response.json(todo);
     },
   },

@@ -2,7 +2,8 @@ import { join, resolve, normalize } from "path";
 import { todoRoutes } from "./routes/todos";
 import { categoryRoutes } from "./routes/categories";
 import { wrapRoutes } from "./lib/wrapHandler";
-import { createWebSocketHandler, getRoomList, type ClientData } from "./ws/handler";
+import { createWebSocketHandler, type ClientData } from "./ws/handler";
+import { pubsub } from "./ws/pubsub";
 import { handleError } from "./lib/errorHandler";
 import {
   createSession,
@@ -162,25 +163,16 @@ const server = Bun.serve<ClientData>({
 
     // WebSocket 업그레이드 경로
     if (url.pathname === "/ws") {
-      const username = url.searchParams.get("username") || "익명";
-      const room = url.searchParams.get("room") || "general";
-
       const upgraded = server.upgrade(request, {
         data: {
           id: crypto.randomUUID(),
-          username,
-          room,
           connectedAt: new Date(),
+          subscribedTodos: [],
         },
       });
 
       if (upgraded) return;
       return new Response("WebSocket 업그레이드 실패", { status: 500 });
-    }
-
-    // 채팅방 목록 API
-    if (url.pathname === "/api/chat/rooms") {
-      return Response.json(getRoomList());
     }
 
     return Response.json({ error: "경로를 찾을 수 없습니다" }, { status: 404 });
@@ -193,6 +185,9 @@ const server = Bun.serve<ClientData>({
     return handleError(error);
   },
 });
+
+// Pub/Sub 관리자에 서버 등록
+pubsub.setServer(server);
 
 setInterval(() => {
   cleanExpiredSessions();
