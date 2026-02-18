@@ -1,0 +1,419 @@
+# docs/openapi.yaml - BunDo API 문서
+openapi: 3.1.0
+info:
+  title: BunDo API
+  description: |
+    BunDo는 할 일 관리 REST API입니다.
+    JWT 토큰 기반 인증을 사용합니다.
+  version: 1.0.0
+  contact:
+    name: BunDo Team
+    email: support@bundo.example.com
+
+servers:
+  - url: http://localhost:3000
+    description: 개발 서버
+
+tags:
+  - name: auth
+    description: 인증 관련 API
+  - name: todos
+    description: 할 일 관리 API
+
+paths:
+  /auth/register:
+    post:
+      tags:
+        - auth
+      summary: 회원가입
+      description: 새 사용자를 등록합니다.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+            example:
+              email: user@example.com
+              password: password123
+              name: 홍길동
+      responses:
+        '201':
+          description: 회원가입 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: 이메일 중복
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/login:
+    post:
+      tags:
+        - auth
+      summary: 로그인
+      description: 이메일과 비밀번호로 로그인합니다.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            example:
+              email: user@example.com
+              password: password123
+      responses:
+        '200':
+          description: 로그인 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/refresh:
+    post:
+      tags:
+        - auth
+      summary: 토큰 갱신
+      description: 토큰을 새로 발급합니다.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - token
+              properties:
+                token:
+                  type: string
+      responses:
+        '200':
+          description: 토큰 갱신 성공
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /todos:
+    get:
+      tags:
+        - todos
+      summary: 할 일 목록 조회
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: 할 일 목록
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TodoListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags:
+        - todos
+      summary: 할 일 생성
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTodoRequest'
+            example:
+              title: Bun 공부하기
+              description: PART 11 완료
+      responses:
+        '201':
+          description: 할 일 생성 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TodoResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /todos/{id}:
+    get:
+      tags:
+        - todos
+      summary: 할 일 상세 조회
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/todoId'
+      responses:
+        '200':
+          description: 할 일 상세
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TodoResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags:
+        - todos
+      summary: 할 일 수정
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/todoId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTodoRequest'
+      responses:
+        '200':
+          description: 수정 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TodoResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags:
+        - todos
+      summary: 할 일 삭제
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/todoId'
+      responses:
+        '200':
+          description: 삭제 성공
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /todos/{id}/toggle:
+    patch:
+      tags:
+        - todos
+      summary: 완료 상태 토글
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/todoId'
+      responses:
+        '200':
+          description: 토글 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TodoResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Access Token을 Authorization 헤더에 포함합니다.
+
+  parameters:
+    todoId:
+      name: id
+      in: path
+      required: true
+      description: 할 일 ID
+      schema:
+        type: integer
+        example: 1
+
+  schemas:
+    RegisterRequest:
+      type: object
+      required:
+        - email
+        - password
+        - name
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+        name:
+          type: string
+
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+
+    LoginResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            token:
+              type: string
+            user:
+              $ref: '#/components/schemas/User'
+
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+        email:
+          type: string
+        name:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    UserResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: '#/components/schemas/User'
+
+    Todo:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        completed:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    TodoResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: '#/components/schemas/Todo'
+
+    TodoListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Todo'
+        meta:
+          type: object
+          properties:
+            total:
+              type: integer
+            completed:
+              type: integer
+            pending:
+              type: integer
+
+    CreateTodoRequest:
+      type: object
+      required:
+        - title
+      properties:
+        title:
+          type: string
+          maxLength: 200
+        description:
+          type: string
+          nullable: true
+
+    UpdateTodoRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 200
+        description:
+          type: string
+          nullable: true
+        completed:
+          type: boolean
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            details:
+              type: object
+
+  responses:
+    BadRequest:
+      description: 잘못된 요청
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: 인증 필요
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: 리소스 없음
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'

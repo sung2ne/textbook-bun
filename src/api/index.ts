@@ -2,6 +2,7 @@
 import { initDatabase } from "../db";
 import { todoRoutes } from "./todos";
 import { authRoutes } from "./auth";
+import { docsRoutes } from "./docs";
 
 export function createServer() {
   initDatabase();
@@ -24,6 +25,10 @@ export function createServer() {
       "PATCH /todos/:id": todoRoutes.update,
       "DELETE /todos/:id": todoRoutes.delete,
       "PATCH /todos/:id/toggle": todoRoutes.toggle,
+
+      // API 문서
+      "GET /docs": docsRoutes.ui,
+      "GET /docs/openapi.yaml": docsRoutes.spec,
     },
 
     fetch(req) {
