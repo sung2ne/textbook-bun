@@ -1,0 +1,20 @@
+# serverless.yml - Serverless Framework 배포 설정
+service: bundo-api
+
+provider:
+  name: aws
+  runtime: provided.al2023
+  region: ap-northeast-2
+  memorySize: 256
+  timeout: 10
+
+functions:
+  api:
+    handler: bootstrap
+    events:
+      - httpApi: "*"
+
+package:
+  patterns:
+    - "!**"
+    - "bootstrap"
