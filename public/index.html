@@ -1,12 +1,172 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html>
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>BunDo</title>
+  <title>BunDo - 할 일 관리</title>
+  <style>
+    body { font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; }
+    .todo { display: flex; align-items: center; gap: 10px; padding: 10px; border-bottom: 1px solid #eee; }
+    .todo.completed { text-decoration: line-through; color: #999; }
+    .connection-status { position: fixed; top: 10px; right: 10px; padding: 5px 10px; border-radius: 4px; }
+    .connected { background: #d4edda; color: #155724; }
+    .disconnected { background: #f8d7da; color: #721c24; }
+    .notification { position: fixed; bottom: 20px; right: 20px; padding: 10px 20px; background: #333; color: white; border-radius: 4px; animation: fadeIn 0.3s; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } }
+  </style>
 </head>
 <body>
-  <h1>BunDo에 오신 것을 환영합니다!</h1>
-  <p>Bun으로 만든 할 일 관리 앱입니다.</p>
+  <h1>BunDo</h1>
+  <div class="connection-status disconnected" id="status">연결 중...</div>
+
+  <form id="todoForm">
+    <input type="text" id="todoInput" placeholder="새 할 일 입력" required>
+    <button type="submit">추가</button>
+  </form>
+
+  <div id="todoList"></div>
+
+  <script>
+    let ws;
+    let reconnectAttempts = 0;
+    const maxReconnectAttempts = 5;
+    const statusEl = document.getElementById("status");
+    const todoList = document.getElementById("todoList");
+
+    // 초기 데이터 로드
+    async function loadTodos() {
+      const res = await fetch("/api/todos");
+      const todos = await res.json();
+      renderTodos(todos);
+    }
+
+    function renderTodos(todos) {
+      todoList.innerHTML = todos.map(todo => `
+        <div class="todo ${todo.completed ? 'completed' : ''}" data-id="${todo.id}">
+          <input type="checkbox" ${todo.completed ? 'checked' : ''}
+                 onchange="toggleTodo(${todo.id}, this.checked)">
+          <span>${todo.title}</span>
+          <button onclick="deleteTodo(${todo.id})">삭제</button>
+        </div>
+      `).join("");
+    }
+
+    // WebSocket 연결
+    function connect() {
+      ws = new WebSocket(`ws://${location.host}/ws`);
+
+      ws.onopen = () => {
+        statusEl.textContent = "연결됨";
+        statusEl.className = "connection-status connected";
+        reconnectAttempts = 0;
+      };
+
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+
+        if (data.type === "ping") {
+          ws.send(JSON.stringify({ type: "pong", timestamp: data.timestamp }));
+          return;
+        }
+
+        handleWebSocketMessage(data);
+      };
+
+      ws.onclose = () => {
+        statusEl.textContent = "연결 끊김";
+        statusEl.className = "connection-status disconnected";
+        scheduleReconnect();
+      };
+
+      ws.onerror = (error) => {
+        console.error("WebSocket 오류:", error);
+      };
+    }
+
+    // 재연결 스케줄링
+    function scheduleReconnect() {
+      if (reconnectAttempts >= maxReconnectAttempts) {
+        statusEl.textContent = "연결 실패";
+        return;
+      }
+
+      reconnectAttempts++;
+      const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000);
+      statusEl.textContent = `재연결 중... (${reconnectAttempts}/${maxReconnectAttempts})`;
+
+      setTimeout(connect, delay);
+    }
+
+    // WebSocket 메시지 처리
+    function handleWebSocketMessage(data) {
+      switch (data.type) {
+        case "todo:created":
+          showNotification(`새 할 일: ${data.todo.title}`);
+          loadTodos(); // 목록 새로고침
+          break;
+
+        case "todo:updated":
+          showNotification(`할 일 수정됨: ${data.todo.title}`);
+          updateTodoInList(data.todo);
+          break;
+
+        case "todo:deleted":
+          showNotification("할 일이 삭제되었습니다");
+          removeTodoFromList(data.todoId);
+          break;
+      }
+    }
+
+    function updateTodoInList(todo) {
+      const el = document.querySelector(`.todo[data-id="${todo.id}"]`);
+      if (el) {
+        el.className = `todo ${todo.completed ? 'completed' : ''}`;
+        el.querySelector("span").textContent = todo.title;
+        el.querySelector("input").checked = todo.completed;
+      } else {
+        loadTodos(); // 없으면 전체 새로고침
+      }
+    }
+
+    function removeTodoFromList(id) {
+      const el = document.querySelector(`.todo[data-id="${id}"]`);
+      if (el) el.remove();
+    }
+
+    function showNotification(message) {
+      const notification = document.createElement("div");
+      notification.className = "notification";
+      notification.textContent = message;
+      document.body.appendChild(notification);
+      setTimeout(() => notification.remove(), 3000);
+    }
+
+    // API 호출
+    async function toggleTodo(id, completed) {
+      await fetch(`/api/todos/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ completed }),
+      });
+    }
+
+    async function deleteTodo(id) {
+      await fetch(`/api/todos/${id}`, { method: "DELETE" });
+    }
+
+    document.getElementById("todoForm").onsubmit = async (e) => {
+      e.preventDefault();
+      const input = document.getElementById("todoInput");
+      await fetch("/api/todos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: input.value }),
+      });
+      input.value = "";
+    };
+
+    // 초기화
+    loadTodos();
+    connect();
+  </script>
 </body>
 </html>

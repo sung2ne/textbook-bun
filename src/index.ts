@@ -2,8 +2,9 @@ import { join, resolve, normalize } from "path";
 import { todoRoutes } from "./routes/todos";
 import { categoryRoutes } from "./routes/categories";
 import { wrapRoutes } from "./lib/wrapHandler";
-import { createWebSocketHandler, type ClientData } from "./ws/handler";
+import { createWebSocketHandler, clients, type ClientData } from "./ws/handler";
 import { pubsub } from "./ws/pubsub";
+import { initHeartbeat } from "./ws/heartbeat";
 import { handleError } from "./lib/errorHandler";
 import {
   createSession,
@@ -188,6 +189,9 @@ const server = Bun.serve<ClientData>({
 
 // Pub/Sub 관리자에 서버 등록
 pubsub.setServer(server);
+
+// 하트비트 초기화 (30초 간격)
+initHeartbeat(clients, 30000);
 
 setInterval(() => {
   cleanExpiredSessions();
