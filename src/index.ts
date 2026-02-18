@@ -1,5 +1,7 @@
 import { join, resolve, normalize } from "path";
 import { todoRoutes } from "./routes/todos";
+import { wrapRoutes } from "./lib/wrapHandler";
+import { handleError } from "./lib/errorHandler";
 import {
   createSession,
   destroySession,
@@ -11,7 +13,6 @@ import { deleteCookie } from "./lib/cookie";
 
 const PUBLIC_DIR = resolve("./public");
 
-// 안전한 정적 파일 서빙 함수
 async function serveStatic(
   requestPath: string,
   options: { download?: boolean } = {}
@@ -41,7 +42,6 @@ async function serveStatic(
   return new Response(file, { headers });
 }
 
-// 임시 사용자 데이터베이스
 const users = [
   { id: 1, username: "alice", password: "password123" },
   { id: 2, username: "bob", password: "secret456" },
@@ -52,26 +52,22 @@ const server = Bun.serve({
   development: process.env.NODE_ENV !== "production",
 
   routes: {
-    // 루트 - API 정보
     "/": () => Response.json({
       name: "BunDo API",
       version: "1.0.0",
     }),
 
-    // 정적 파일 서빙
     "/static/*": (request) => {
       const url = new URL(request.url);
       const filePath = url.pathname.replace("/static/", "");
       return serveStatic(filePath);
     },
 
-    // 헬스 체크
     "/health": () => Response.json({
       status: "ok",
       timestamp: new Date().toISOString(),
     }),
 
-    // 인증 API
     "/api/auth/login": {
       POST: async (request) => {
         const body = await request.json();
@@ -111,14 +107,10 @@ const server = Bun.serve({
     "/api/auth/logout": {
       POST: (request) => {
         const session = getSessionFromRequest(request);
-
         if (session) {
           const sessionId = request.headers.get("cookie")?.match(/sessionId=([^;]+)/)?.[1];
-          if (sessionId) {
-            destroySession(sessionId);
-          }
+          if (sessionId) destroySession(sessionId);
         }
-
         return new Response(JSON.stringify({ message: "로그아웃 성공" }), {
           headers: {
             "Content-Type": "application/json",
@@ -130,27 +122,26 @@ const server = Bun.serve({
 
     "/api/auth/me": (request) => {
       const session = getSessionFromRequest(request);
-
       if (!session) {
         return Response.json({ error: "로그인이 필요합니다" }, { status: 401 });
       }
-
-      return Response.json({
-        userId: session.userId,
-        username: session.username,
-      });
+      return Response.json({ userId: session.userId, username: session.username });
     },
 
-    // 할 일 API
-    ...todoRoutes,
+    // 에러 핸들링이 적용된 할 일 API
+    ...wrapRoutes(todoRoutes),
   },
 
   fetch(request) {
     return Response.json({ error: "경로를 찾을 수 없습니다" }, { status: 404 });
   },
+
+  error(error) {
+    console.error("서버 에러:", error);
+    return handleError(error);
+  },
 });
 
-// 만료된 세션 정리 (1시간마다)
 setInterval(() => {
   cleanExpiredSessions();
 }, 60 * 60 * 1000);
